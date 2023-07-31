@@ -11,8 +11,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-// Define the Todo struct to represent the data
-// structure for each document in the collection.
+// Define the Todo struct to represent the data structure for each document in the collection.
 type Todo struct {
 	Todo      string    `bson:"todo"`
 	Status    string    `bson:"status"`
@@ -22,43 +21,44 @@ type Todo struct {
 }
 
 func main() {
-	// Replace the connection string and
-	// database name with your MongoDB details.
+	// Replace the connection string and database name with your MongoDB details.
 	connectionString := "mongodb://localhost:27017"
 	databaseName := "example_for_go"
 
-	// Create a MongoDB client.
-	client, err := mongo.NewClient(options.Client().ApplyURI(connectionString))
-	if err != nil {
-		log.Fatal("Error creating MongoDB client:", err)
-	}
-
-	// Create a context with a timeout to be used with the client.
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	// Connect to MongoDB.
-	err = client.Connect(ctx)
+	// Create a MongoDB client with options.
+	clientOptions := options.Client().ApplyURI(connectionString)
+	client, err := mongo.Connect(context.Background(), clientOptions)
 	if err != nil {
 		log.Fatal("Error connecting to MongoDB:", err)
+	}
+	defer func() {
+		// Disconnect the client when the work is done.
+		if err := client.Disconnect(context.Background()); err != nil {
+			log.Fatal("Error disconnecting from MongoDB:", err)
+		}
+	}()
+
+	// Ping the MongoDB server to check if the connection was successful.
+	err = client.Ping(context.Background(), nil)
+	if err != nil {
+		log.Fatal("Error pinging MongoDB:", err)
 	}
 
 	// Get a handle to the "todos" collection.
 	collection := client.Database(databaseName).Collection("todos")
 
 	// Create indexes if needed for better query performance.
-	// For example, if you want to query by "status",
-	// you can create an index on it.
+	// For example, if you want to query by "status", you can create an index on it.
 	indexModel := mongo.IndexModel{
 		Keys:    bson.D{{Key: "status", Value: 1}},
 		Options: options.Index().SetUnique(false),
 	}
-	_, err = collection.Indexes().CreateOne(ctx, indexModel)
+	_, err = collection.Indexes().CreateOne(context.Background(), indexModel)
 	if err != nil {
 		log.Fatal("Error creating index:", err)
 	}
 
-	// Optionally, create additional indexes
-	// for other fields as needed.
+	// Optionally, create additional indexes for other fields as needed.
+
 	fmt.Println("Migration complete!")
 }
