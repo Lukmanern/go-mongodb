@@ -22,7 +22,8 @@ type Todo struct {
 }
 
 func main() {
-	// Replace the connection string and database name with your MongoDB details.
+	// Replace the connection string and database
+	// name with your MongoDB details.
 	connectionString := "mongodb://localhost:27017"
 	databaseName := "example_for_go"
 
@@ -93,6 +94,20 @@ func ReadTodos(collection *mongo.Collection) []Todo {
 		fmt.Printf("Todo ID: %s, Todo: %s, Status: %s\n", todo.ID, todo.Todo, todo.Status)
 	}
 	return todos
+}
+
+// UpdateTodoStatus updates the status of a todo.
+func UpdateTodo(collection *mongo.Collection, todoID string, todo string) {
+	objectID, err := primitive.ObjectIDFromHex(todoID)
+	if err != nil {
+		log.Fatal("Invalid Todo ID:", err)
+	}
+	filter := bson.M{"_id": objectID}
+	updateData := bson.M{"$set": bson.M{"todo": todo, "updated_at": time.Now()}}
+	_, err = collection.UpdateOne(context.Background(), filter, updateData)
+	if err != nil {
+		log.Fatal("Error updating todo:", err)
+	}
 }
 
 // UpdateTodoStatus updates the status of a todo.
