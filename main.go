@@ -12,6 +12,14 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
+var (
+	ctx              context.Context
+	database         *mongo.Database
+	collection       *mongo.Collection
+	connectionString = "mongodb://localhost:27017"
+	databaseName     = "example_for_go"
+)
+
 type Todo struct {
 	ID        string    `bson:"_id,omitempty"`
 	Todo      string    `bson:"todo"`
@@ -22,57 +30,40 @@ type Todo struct {
 }
 
 func main() {
-	collection, err := getCollection()
+	ctx = context.Background()
+	client, err := mongo.Connect(ctx, options.Client().ApplyURI(connectionString))
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal("Error connecting to MongoDB:", err)
 	}
-	// CRUD operations
-	insertedID := CreateTodo(collection, "Example Task", "Pending")
-	// todos := ReadTodos(collection)
-	// UpdateTodoStatus(collection, insertedID, "Completed")
-	// SoftDeleteTodo(collection, insertedID)
+	defer func() {
+		// Disconnect the client when the work is done.
+		if err := client.Disconnect(ctx); err != nil {
+			log.Fatal("Error disconnecting from MongoDB:", err)
+		}
+	}()
 
-	// fmt.Println(todos)
+	// Set the MongoDB database and collection
+	database = client.Database(databaseName)
+	collection = database.Collection("todos")
+
+	// CRUD operations
+	insertedID := CreateTodo("Example Task -------", "Pending")
+	todos := ReadTodos()
+	UpdateTodoStatus(insertedID, "Completed")
+	SoftDeleteTodo(insertedID)
+
+	fmt.Println(todos)
 	fmt.Println(insertedID)
 	fmt.Println("CRUD operations completed successfully!")
 }
 
-func getCollection() (*mongo.Collection, error) {
-	// Replace the connection string and database
-	// name with your MongoDB details.
-	connectionString := "mongodb://localhost:27017"
-	databaseName := "example_for_go"
-
-	// Create a MongoDB client with options.
-	clientOptions := options.Client().ApplyURI(connectionString)
-	client, err := mongo.Connect(context.Background(), clientOptions)
-	if err != nil {
-		log.Println("Error connecting to MongoDB:", err)
-		return nil, err
-	}
-	defer func() {
-		// Disconnect the client when the work is done.
-		if err := client.Disconnect(context.Background()); err != nil {
-			log.Println("Error disconnecting from MongoDB:", err)
-		}
-	}()
-
-	// Ping the MongoDB server to check
-	// if the connection was successful.
-	err = client.Ping(context.Background(), nil)
-	if err != nil {
-		log.Println("Error pinging MongoDB:", err)
-		return nil, err
-	}
-
-	// Get a handle to the "todos" collection.
-	collection := client.Database(databaseName).Collection("todos")
-
-	return collection, nil
+// GetCollection returns the "todos" collection.
+func GetCollection() *mongo.Collection {
+	return collection
 }
 
 // CreateTodo creates a new todo in the collection.
-func CreateTodo(collection *mongo.Collection, todo, status string) string {
+func CreateTodo(todo, status string) string {
 	newTodo := Todo{
 		Todo:      todo,
 		Status:    status,
@@ -80,26 +71,26 @@ func CreateTodo(collection *mongo.Collection, todo, status string) string {
 		UpdatedAt: time.Now(),
 		DeletedAt: time.Time{},
 	}
-	insertResult, err := collection.InsertOne(context.Background(), newTodo)
+	insertResult, err := collection.InsertOne(ctx, newTodo)
 	if err != nil {
-		log.Println("Error creating todo:", err)
+		log.Fatal("Error creating todo:", err)
 	}
 	fmt.Println("New Todo ID:", insertResult.InsertedID)
 	return insertResult.InsertedID.(primitive.ObjectID).Hex()
 }
 
 // ReadTodos retrieves all todos from the collection.
-func ReadTodos(collection *mongo.Collection) []Todo {
+func ReadTodos() []Todo {
 	filter := bson.M{} // Empty filter to retrieve all todos.
-	cursor, err := collection.Find(context.Background(), filter)
+	cursor, err := collection.Find(ctx, filter)
 	if err != nil {
-		log.Println("Error retrieving todos:", err)
+		log.Fatal("Error retrieving todos:", err)
 	}
-	defer cursor.Close(context.Background())
+	defer cursor.Close(ctx)
 
 	var todos []Todo
-	if err := cursor.All(context.Background(), &todos); err != nil {
-		log.Println("Error decoding todos:", err)
+	if err := cursor.All(ctx, &todos); err != nil {
+		log.Fatal("Error decoding todos:", err)
 	}
 	fmt.Println("All Todos:")
 	for _, todo := range todos {
@@ -109,43 +100,29 @@ func ReadTodos(collection *mongo.Collection) []Todo {
 }
 
 // UpdateTodoStatus updates the status of a todo.
-func UpdateTodo(collection *mongo.Collection, todoID string, todo string) {
+func UpdateTodoStatus(todoID string, newStatus string) {
 	objectID, err := primitive.ObjectIDFromHex(todoID)
 	if err != nil {
-		log.Println("Invalid Todo ID:", err)
-	}
-	filter := bson.M{"_id": objectID}
-	updateData := bson.M{"$set": bson.M{"todo": todo, "updated_at": time.Now()}}
-	_, err = collection.UpdateOne(context.Background(), filter, updateData)
-	if err != nil {
-		log.Println("Error updating todo:", err)
-	}
-}
-
-// UpdateTodoStatus updates the status of a todo.
-func UpdateTodoStatus(collection *mongo.Collection, todoID string, newStatus string) {
-	objectID, err := primitive.ObjectIDFromHex(todoID)
-	if err != nil {
-		log.Println("Invalid Todo ID:", err)
+		log.Fatal("Invalid Todo ID:", err)
 	}
 	filter := bson.M{"_id": objectID}
 	updateData := bson.M{"$set": bson.M{"status": newStatus, "updated_at": time.Now()}}
-	_, err = collection.UpdateOne(context.Background(), filter, updateData)
+	_, err = collection.UpdateOne(ctx, filter, updateData)
 	if err != nil {
-		log.Println("Error updating todo:", err)
+		log.Fatal("Error updating todo:", err)
 	}
 }
 
 // SoftDeleteTodo soft deletes a todo.
-func SoftDeleteTodo(collection *mongo.Collection, todoID string) {
+func SoftDeleteTodo(todoID string) {
 	objectID, err := primitive.ObjectIDFromHex(todoID)
 	if err != nil {
-		log.Println("Invalid Todo ID:", err)
+		log.Fatal("Invalid Todo ID:", err)
 	}
 	filter := bson.M{"_id": objectID}
 	updateData := bson.M{"$set": bson.M{"deleted_at": time.Now()}}
-	_, err = collection.UpdateOne(context.Background(), filter, updateData)
+	_, err = collection.UpdateOne(ctx, filter, updateData)
 	if err != nil {
-		log.Println("Error soft deleting todo:", err)
+		log.Fatal("Error soft deleting todo:", err)
 	}
 }
