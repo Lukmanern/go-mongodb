@@ -17,8 +17,8 @@ var (
 	database         *mongo.Database
 	collection       *mongo.Collection
 	collectionName   = "todos"
-	connectionString = "mongodb://localhost:27017"
 	databaseName     = "example_for_go"
+	connectionString = "mongodb://localhost:27017"
 )
 
 type Todo struct {
@@ -34,12 +34,12 @@ func main() {
 	ctx = context.Background()
 	client, err := mongo.Connect(ctx, options.Client().ApplyURI(connectionString))
 	if err != nil {
-		log.Fatal("Error connecting to MongoDB:", err)
+		log.Println("Error connecting to MongoDB:", err)
 	}
 	defer func() {
 		// Disconnect the client when the work is done.
 		if err := client.Disconnect(ctx); err != nil {
-			log.Fatal("Error disconnecting from MongoDB:", err)
+			log.Println("Error disconnecting from MongoDB:", err)
 		}
 	}()
 
@@ -58,11 +58,6 @@ func main() {
 	fmt.Println("CRUD operations completed successfully!")
 }
 
-// GetCollection returns the "todos" collection.
-func GetCollection() *mongo.Collection {
-	return collection
-}
-
 // CreateTodo creates a new todo in the collection.
 func CreateTodo(todo, status string) string {
 	newTodo := Todo{
@@ -74,7 +69,8 @@ func CreateTodo(todo, status string) string {
 	}
 	insertResult, err := collection.InsertOne(ctx, newTodo)
 	if err != nil {
-		log.Fatal("Error creating todo:", err)
+		log.Println("Error creating todo:", err)
+		return ""
 	}
 	fmt.Println("New Todo ID:", insertResult.InsertedID)
 	return insertResult.InsertedID.(primitive.ObjectID).Hex()
@@ -85,13 +81,15 @@ func ReadTodos() []Todo {
 	filter := bson.M{} // Empty filter to retrieve all todos.
 	cursor, err := collection.Find(ctx, filter)
 	if err != nil {
-		log.Fatal("Error retrieving todos:", err)
+		log.Println("Error retrieving todos:", err)
+		return nil
 	}
 	defer cursor.Close(ctx)
 
 	var todos []Todo
 	if err := cursor.All(ctx, &todos); err != nil {
-		log.Fatal("Error decoding todos:", err)
+		log.Println("Error decoding todos:", err)
+		return nil
 	}
 	fmt.Println("All Todos:")
 	for _, todo := range todos {
@@ -104,13 +102,13 @@ func ReadTodos() []Todo {
 func UpdateTodoStatus(todoID string, newStatus string) {
 	objectID, err := primitive.ObjectIDFromHex(todoID)
 	if err != nil {
-		log.Fatal("Invalid Todo ID:", err)
+		log.Println("Invalid Todo ID:", err)
 	}
 	filter := bson.M{"_id": objectID}
 	updateData := bson.M{"$set": bson.M{"status": newStatus, "updated_at": time.Now()}}
 	_, err = collection.UpdateOne(ctx, filter, updateData)
 	if err != nil {
-		log.Fatal("Error updating todo:", err)
+		log.Println("Error updating todo:", err)
 	}
 }
 
@@ -118,12 +116,12 @@ func UpdateTodoStatus(todoID string, newStatus string) {
 func SoftDeleteTodo(todoID string) {
 	objectID, err := primitive.ObjectIDFromHex(todoID)
 	if err != nil {
-		log.Fatal("Invalid Todo ID:", err)
+		log.Println("Invalid Todo ID:", err)
 	}
 	filter := bson.M{"_id": objectID}
 	updateData := bson.M{"$set": bson.M{"deleted_at": time.Now()}}
 	_, err = collection.UpdateOne(ctx, filter, updateData)
 	if err != nil {
-		log.Fatal("Error soft deleting todo:", err)
+		log.Println("Error soft deleting todo:", err)
 	}
 }
