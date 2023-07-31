@@ -16,6 +16,7 @@ var (
 	ctx              context.Context
 	database         *mongo.Database
 	collection       *mongo.Collection
+	collectionName   = "todos"
 	connectionString = "mongodb://localhost:27017"
 	databaseName     = "example_for_go"
 )
@@ -44,10 +45,10 @@ func main() {
 
 	// Set the MongoDB database and collection
 	database = client.Database(databaseName)
-	collection = database.Collection("todos")
+	collection = database.Collection(collectionName)
 
 	// CRUD operations
-	insertedID := CreateTodo("Example Task -------", "Pending")
+	insertedID := CreateTodo("Example Task", "Pending")
 	todos := ReadTodos()
 	UpdateTodoStatus(insertedID, "Completed")
 	SoftDeleteTodo(insertedID)
