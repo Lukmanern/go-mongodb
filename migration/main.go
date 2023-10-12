@@ -11,7 +11,8 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-// Define the Todo struct to represent the data structure for each document in the collection.
+// Define the Todo struct to represent the data structure
+// for each document in the collection.
 type Todo struct {
 	Todo      string    `bson:"todo"`
 	Status    string    `bson:"status"`
@@ -21,7 +22,8 @@ type Todo struct {
 }
 
 func main() {
-	// Replace the connection string and database name with your MongoDB details.
+	// Replace the connection string and
+	// database name with your MongoDB details.
 	connectionString := "mongodb://localhost:27017"
 	databaseName := "example_for_go"
 
@@ -38,7 +40,8 @@ func main() {
 		}
 	}()
 
-	// Ping the MongoDB server to check if the connection was successful.
+	// Ping the MongoDB server to check if
+	// the connection was successful.
 	err = client.Ping(context.Background(), nil)
 	if err != nil {
 		log.Fatal("Error pinging MongoDB:", err)
@@ -57,8 +60,6 @@ func main() {
 	if err != nil {
 		log.Fatal("Error creating index:", err)
 	}
-
-	// Optionally, create additional indexes for other fields as needed.
 
 	fmt.Println("Migration complete!")
 }
